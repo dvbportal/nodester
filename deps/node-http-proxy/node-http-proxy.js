@@ -51,7 +51,7 @@ var errorHtml = '<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="
   '</head>' +
   '<body>' +
     '<div>' +
-      '<img src="http://static.jgate.de/img/cloudnode-logo2-light.png" alt="logo" />' +
+      '<img src="https://cloudno.de/static/img/cloudnode-logo2-light.png" alt="logo" />' +
         '<h1>{code}</h1>' +
         '<h3>{error}</h3>' +
     '</div>' +

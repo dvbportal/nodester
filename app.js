@@ -22,10 +22,12 @@ process.on('uncaughtException', function(err) {
 var daemon = require('daemon');
 // daemon.setreuid(config.opt.userid);
 var myapp = express.createServer();
+var gzippo = require('gzippo');
 
 myapp.configure(function() {
   myapp.use(express.bodyParser());
-  myapp.use(express.static(config.opt.public_html_dir));
+//  myapp.use(express.static(config.opt.public_html_dir));
+  myapp.use(gzippo.staticGzip(config.opt.public_html_dir));
   myapp.use(middle.error());
 });
 
