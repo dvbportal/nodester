@@ -533,6 +533,13 @@ HttpProxy.prototype.proxyRequest = function (req, res, options) {
     }
   });
 
+  //Aborts reverseProxy if client aborts the connection.
+  req.on('close', function () {
+    if (!errState) {
+      reverseProxy.abort();
+    }
+  });
+
   // If we have been passed buffered data, resume it.
   if (options.buffer && !errState) {
     options.buffer.resume();
