@@ -29,6 +29,8 @@ var util = require('util'),
     https = require('https'),
     events = require('events'),
     ProxyTable = require('./proxy-table').ProxyTable,
+    proxyStats = require('../cloudnode-proxy/proxy-stats'),
+    proxyErrorPage = require('../cloudnode-proxy/proxy-error'),
     maxSockets = 100;
 
 //
@@ -36,33 +38,15 @@ var util = require('util'),
 //
 exports.version = [0, 5, 7];
 
+exports.register_lookup = function(lookup_app_) {
+  lookup_app = lookup_app_;
+}
+
 //
 // Track our own list of agents internal to `node-http-proxy`
 //
 var _agents = {};
 
-var errorHtml = '<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">' +
-  '<head>' +
-    '<title id="title">{title}</title>' +
-    '<style stype="text/css">' +
-      'html { font-family: Arial,Helvetica,sans-serif; }' +
-      'div { width: 100%; text-align: center; margin-top: 230px; color: #909090; }' +
-    '</style>' +
-  '</head>' +
-  '<body>' +
-    '<div>' +
-      '<img src="https://cloudno.de/static/img/cloudnode-logo2-light.png" alt="logo" />' +
-        '<h1>{code}</h1>' +
-        '<h3>{error}</h3>' +
-    '</div>' +
-  '</body>' +
-'</html>';
-
-var getErrorPage = function(title, code, error) {
-    return errorHtml.replace('{title}', title).replace('{code}', code).replace('{error}', error);
-};
-
-//
 // ### function _getAgent (host, port, secure)
 // #### @host {string} Host of the agent to get
 // #### @port {number} Port of the agent to get
@@ -407,7 +391,10 @@ HttpProxy.prototype.proxyRequest = function (req, res, options) {
     req.headers['x-forwarded-port']  = req.connection.remotePort || req.connection.socket.remotePort;
     req.headers['x-forwarded-proto'] = res.connection.pair ? 'https' : 'http';
   }
-  util.log(req.method + ': ' + req.headers.host + req.url + ' - ' + req.headers["x-forwarded-for"]);
+
+  // calls stats module to count the request
+  proxyStats.recordRequest(req, options);
+
   //
   // Emit the `start` event indicating that we have begun the proxy operation.
   //
@@ -446,7 +433,7 @@ HttpProxy.prototype.proxyRequest = function (req, res, options) {
       // This NODE_ENV=production behavior is mimics Express and
       // Connect.
       //
-      res.write(getErrorPage('Application Offline', 500, 'Application is offline'));
+      res.write(proxyErrorPage.getErrorPage('Application Offline', 500, 'Application is offline'));
 /*
       if (process.env.NODE_ENV === 'production') {
         res.write('Internal Server Error');
