@@ -8,44 +8,22 @@ This app runs on port 80 and forwards traffic to the appropriate node app
 */
 
 var httpProxy = require('../deps/node-http-proxy/node-http-proxy.js'),
+    proxyStats = require('../deps/cloudnode-proxy/proxy-stats'),
+    proxyError = require('../deps/cloudnode-proxy/proxy-error'),
     http = require('http'),
-    https = require('http'),
     net = require('net'),
     policyfile = require('policyfile'),
     url = require('url'),
     fs = require('fs'),
     path = require('path'),
     lib = require('../lib/lib'),
-    exec = require('child_process').exec,
     config = require('../config');
-
-require.paths.unshift(path.join(config.app_dir, '../', '.node_libraries'));
 
 var daemon = require('daemon');
 var proxy = new httpProxy.HttpProxy();
 var proxymap = {};
+var sub_domains = {};
 var proxy_refresh_timer = null;
-
-var errorHtml = '<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">' + 
-  '<head>' +
-    '<title id="title">{title}</title>' +
-    '<style stype="text/css">' +
-      'html { font-family: Arial,Helvetica,sans-serif; }' +
-      'div { width: 100%; text-align: center; margin-top: 230px; color: #909090; }' +
-    '</style>' +
-  '</head>' +
-  '<body>' +
-    '<div>' +
-      '<img src="https://cloudno.de/static/img/cloudnode-logo2-light.png" alt="logo" />' +
-	'<h1>{code}</h1>' +
-	'<h3>{error}</h3>' +
-    '</div>' +
-  '</body>' +
-'</html>';
-
-var getErrorPage = function(title, code, error) {
-    return errorHtml.replace('{title}', title).replace('{code}', code).replace('{error}', error);
-};
 
 var queue_proxy_map_refresh = function() {
   if (proxy_refresh_timer === null) {
@@ -81,6 +59,12 @@ var load_proxymap = function(fname, cb) {
                 host: prts[0],
                 port: prts[1]
               };
+              // port to app lookup
+	      var pos = i.indexOf('.cloudno.de');
+	      if (pos != -1) {
+		var subdomain = i.substring(0, pos);
+		sub_domains[prts[1]] = subdomain;
+	      }
             }
           }
           cb(undefined, true);
@@ -110,6 +94,12 @@ var lookup_hostport = function(hostport) {
   }
 };
 
+var lookup_app = function(hostport) {
+  return sub_domains[hostport];
+}
+
+proxyStats.registerLookup(lookup_app);
+
 var handle_http_request = function(req, res) {
   if (typeof req.headers.host == 'string') {
     if (req.headers.host == 'cloudnode.de' || req.headers.host == 'www.cloudno.de') {
@@ -127,14 +117,14 @@ var handle_http_request = function(req, res) {
         res.writeHead(404, {
           'Content-Type': 'text/html'
         });
-        res.end(getErrorPage('Page not found', 404, 'Application does not exist!'));
+        res.end(proxyError.getErrorPage('Page not found', 404, 'Application does not exist!'));
       }
     }
   } else {
     res.writeHead(406, {
       'Content-Type': 'text/html'
     });
-    res.end(getErrorPage('Page not found', 406, 'You didn\'t specify a hostname!'));
+    res.end(proxyError.getErrorPage('Page not found', 406, 'You didn\'t specify a hostname!'));
   }
 };
 
@@ -157,11 +147,8 @@ var handle_upgrade_request = function(req, socket, head) {
 
 
 var switch_user = function() {
-  //var child = exec('id -u ' + config.opt.userid, function(err, stdout, stderr) {
-    //daemon.setreuid(parseInt(stdout, 10));
     daemon.setreuid(config.opt.uid);
     console.log('Switched to ' + process.getuid() + '.');
-  //});
 };
 
 lib.update_proxytable_map(function(err) {
@@ -177,6 +164,8 @@ lib.update_proxytable_map(function(err) {
     flash_server.listen(843);
     console.log('Flash Policy Server started on port 843.');
     if (config.opt.enable_ssl === true) {
+      var tls = require('tls');
+      tls.CLIENT_RENEG_LIMIT = 0;
       var https = require('https');
       var options = {
         ca: [
@@ -184,11 +173,12 @@ lib.update_proxytable_map(function(err) {
             fs.readFileSync(config.opt.app_dir + '/' + config.opt.ssl_sub1_file)
 	],
 	key: fs.readFileSync(config.opt.app_dir + '/' + config.opt.ssl_key_file),
-        cert: fs.readFileSync(config.opt.app_dir + '/' + config.opt.ssl_cert_file)
+        cert: fs.readFileSync(config.opt.app_dir + '/' + config.opt.ssl_cert_file),
+	ciphers: "ECDHE-RSA-AES256-SHA384:AES256-SHA256:AECDH-AES256-SHA:DHE-DSS-CAMELLIA256-SHA:RC4:HIGH:+TLSv1:!SSLv2:+SSLv3:!MD5:!aNULL:!EDH:!AESGCM",
+	secureOptions: require('constants').SSL_OP_CIPHER_SERVER_PREFERENCE
       };
       var httpSsl = https.createServer(options, function(req, res) {
         var proxy = new httpProxy.HttpProxy(req, res);
-	//console.log('https: ' + req.headers.host + ', url: ' + req.url); 
         if (req.headers.host == 'cloudno.de' &&
 	  (req.url.indexOf('/lead') == 0 ||
 	   req.url.indexOf('/api') == 0 ||
@@ -196,6 +186,7 @@ lib.update_proxytable_map(function(err) {
            req.url.indexOf('/contact') == 0 ||
            req.url.indexOf('/myapps') == 0 ||
            req.url.indexOf('/database') == 0 ||
+           req.url.indexOf('/user') == 0 ||
            req.url.indexOf('/rpx') == 0 ||
            req.url.indexOf('/signup') == 0 ||
            req.url.indexOf('/admin') == 0 ||
@@ -220,12 +211,11 @@ lib.update_proxytable_map(function(err) {
       httpSsl.setMaxListeners(1000);
       httpSsl.listen(443);
       console.log('Nodester API/WWW started on port 443'); // We need SNI in node.js
-      switch_user();
-    } else {
-      switch_user();
     }
-    daemon.setreuid(config.opt.uid);
-    console.log('Switched to ' + process.getuid() + '.');
+    setTimeout(function() {
+      daemon.setreuid(config.opt.uid);
+      console.log('Switched to ' + process.getuid() + '.');
+    }, 1000);
     console.log('Nodester started on port 80');
   }
 });
