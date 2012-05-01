@@ -38,10 +38,6 @@ var util = require('util'),
 //
 exports.version = [0, 5, 7];
 
-exports.register_lookup = function(lookup_app_) {
-  lookup_app = lookup_app_;
-}
-
 //
 // Track our own list of agents internal to `node-http-proxy`
 //
