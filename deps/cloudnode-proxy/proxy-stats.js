@@ -13,7 +13,7 @@ var crypto = require('crypto');
 var lookup_app;
 
 exports.registerLookup = function(lookup_app_) {
-	lookup_app = lookup_app_;
+    lookup_app = lookup_app_;
 }
 
 var client = redis.createClient(config.opt.redis_port, 'cloudno.de');
@@ -22,7 +22,7 @@ var client = redis.createClient(config.opt.redis_port, 'cloudno.de');
  * Authenticate with Redis
  */
 client.auth(config.opt.redis_auth, function(result) {
-	util.log("Redis authenticated.");
+    util.log("Redis authenticated.");
 })
 
 client.on("error", function (err) {
@@ -37,41 +37,41 @@ exports.recordRequest = function(req, options) {
 
   // log to redis
   if (client && client.connected) {
-	var host = req.headers.host;
-	var pos = host.indexOf('.cloudno.de');
-	var appName;
+    var host = req.headers.host;
+    var pos = host.indexOf('.cloudno.de');
+    var appName;
 
-	if (lookup_app && options.port != "5984") {
-		appName = lookup_app(options.port);
-	} else {
-		appName = host.substring(0, pos);
-	}
+    if (lookup_app && options.port != "5984") {
+        appName = lookup_app(options.port);
+    } else {
+        appName = host.substring(0, pos);
+    }
 
-	if (appName) {
-		var ip = req.headers["x-forwarded-for"];
-		var referer = req.headers.referer;
-		var date = new Date;
-		var month = date.getUTCMonth() + 1;
-	    var day = date.getUTCFullYear() + "-" + month + "-" + date.getUTCDate();
-		var urlhash;
+    if (appName) {
+        var ip = req.headers["x-forwarded-for"];
+        var referer = req.headers.referer;
+        var date = new Date;
+        var month = date.getUTCMonth() + 1;
+        var day = date.getUTCFullYear() + "-" + month + "-" + date.getUTCDate();
+        var urlhash;
 
-	    var keys = [
-			"hits",
-	    	"hits-by-app:" + appName,
-	    	"hits-by-day:" + day,
-			"hits-by-app-by-month:" + appName + ':' + month, 
-			"hits-by-ip-by-day:" + ip,
-	  	];
+        var keys = [
+            "hits",
+            "hits-by-app:" + appName,
+            "hits-by-day:" + day,
+            "hits-by-app-by-month:" + appName + ':' + month, 
+            "hits-by-ip-by-day:" + ip,
+        ];
 
-		if (referer) {
-		 	urlhash = crypto.createHash("md5").update(referer).digest("hex");
-			keys.push("hits-by-app-by-url-by-day:" + urlhash + ":" + day);
-			client.set("url:" + urlhash, referer);
-		}
+        if (referer) {
+            urlhash = crypto.createHash("md5").update(referer).digest("hex");
+            keys.push("hits-by-app-by-url-by-day:" + urlhash + ":" + day);
+            client.set("url:" + urlhash, referer);
+        }
 
-	  	for (var i in keys) {
-	    	client.incr(keys[i]);
-	   	}
-	}
+        for (var i in keys) {
+            client.incr(keys[i]);
+        }
+    }
   }
 }
