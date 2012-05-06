@@ -7,3 +7,6 @@ ssl/*
 bin/.nodester.config
 *.log
 *.log.*
+node_modules
+logs
+public/static/node-*
