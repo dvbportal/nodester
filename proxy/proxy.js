@@ -106,6 +106,13 @@ var handle_http_request = function(req, res) {
                 Location: 'http://cloudno.de'
             });
             res.end();
+        } else if (req.headers.host == 'cloudno.de' && 
+            (req.url.indexOf('/user') == 0 ||
+             req.url.indexOf('/login') == 0 ||
+             req.url.indexOf('/admin') == 0 ||
+             req.url.indexOf('/signup') == 0)) {
+                var proxy = new httpProxy.HttpProxy({host: "81.169.133.153", port: 80});
+                proxy.proxyRequest(req, res);
         } else {
             var options = lookup_hostport(req.headers.host);
             if (options !== null) {
@@ -179,6 +186,7 @@ lib.update_proxytable_map(function(err) {
                 if (req.headers.host == 'cloudno.de' &&
                 (req.url.indexOf('/lead') == 0 ||
                 req.url.indexOf('/api') == 0 ||
+                req.url.indexOf('/beta') == 0 ||
                 req.url.indexOf('/account') == 0 ||
                 req.url.indexOf('/contact') == 0 ||
                 req.url.indexOf('/myapps') == 0 ||

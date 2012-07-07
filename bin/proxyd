@@ -6,12 +6,18 @@ APP="Proxy"
 DATE=$(date)
 LOG="proxyd.log"
 
+# Stashboard bin path
+STASH_PATH=/home/hajo/bin
+
+# used to append the current date to the archive name
+DATE2=$(date +"%Y%m%d")
+
 if [ -z "$USER" ]; then
   USER=root
 fi
 
 cd /var/cloudnode/nodester
-#echo "$DATE  Proxy control started with command $1 as user $USER" | tee -a $LOG
+echo "$DATE  Proxy control started with command $1 as user $USER" | tee -a $LOG
  
 get_pid()
 {
@@ -26,8 +32,18 @@ case "$1" in
     fi
     get_pid
     if [ -z "$PID" ]; then
-      /usr/local/node-v0.4.0/node  proxy/proxy.js > proxy.log | tee -a $LOG &
+      # save log file 
+      mv proxy.log proxy.log.$DATE2
+      # start proxy 
+#     /usr/local/node-v0.4.0/node  proxy/proxy.js > proxy.log | tee -a $LOG &
+#     /usr/local/node-v0.6.11/node  proxy/proxy.js > proxy.log | tee -a $LOG &
+      node  proxy/proxy.js > proxy.log | tee -a $LOG &
       echo "$APP started" | tee -a $LOG
+
+      # log event
+      if [ "$2" = "notify" ]; then
+        python ${STASH_PATH}/stashboard-client/cloudnode-status.py -t cloudnode-proxy -s up -m "online with all services"
+      fi
     else
       echo "$APP is already running ($PID)" | tee -a$LOG
     fi
@@ -38,6 +54,12 @@ case "$1" in
     if [ -n "$PID" ]; then
       kill -9 $PID
       echo "$APP stopped ($PID)" | tee -a $LOG
+
+      # log event
+      if [ "$2" = "notify" ]; then
+        python ${STASH_PATH}/stashboard-client/cloudnode-status.py -t cloudnode-proxy -s down -m "The Cloudnode proxy service is experiencing a service disruption"
+      fi
+
     else
       echo "$APP is not running ($PID)" | tee -a $LOG
     fi
@@ -49,9 +71,7 @@ case "$1" in
       exit
     fi
     $0 stop
-    $0 stat
     sleep 1
-    $0 stat
     $0 start
     $0 stat
     ;;
@@ -71,5 +91,3 @@ case "$1" in
   ;;
 
 esac
-
-

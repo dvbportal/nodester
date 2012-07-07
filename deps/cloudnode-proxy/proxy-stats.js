@@ -59,13 +59,13 @@ exports.recordRequest = function(req, options) {
             "hits",
             "hits-by-app:" + appName,
             "hits-by-day:" + day,
-            "hits-by-app-by-month:" + appName + ':' + month, 
-            "hits-by-ip-by-day:" + ip,
+            "hits-by-app-by-month:" + appName + ':' + month,
+            "hits-by-ip-by-day:" + ip + ':' + day,
         ];
 
         if (referer) {
             urlhash = crypto.createHash("md5").update(referer).digest("hex");
-            keys.push("hits-by-app-by-url-by-day:" + urlhash + ":" + day);
+            keys.push("hits-by-app-by-url-by-day:" + appName + ':' + urlhash + ":" + day);
             client.set("url:" + urlhash, referer);
         }
 

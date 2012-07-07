@@ -6,4 +6,5 @@ cd `dirname $0`
 wait
 source ./.nodester.config
 
-node $APP_DIR/scripts/start_hosted_apps.js start "$@"
+ulimit -n 2048
+sudo -u cloudnode /usr/local/node-v0.4.12/node $APP_DIR/scripts/start_hosted_apps.js start "$@"

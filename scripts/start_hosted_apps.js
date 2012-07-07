@@ -38,6 +38,8 @@ switch (action) {
         break;
 }
 
+util.log(verb + ' ' + (all ? 'all' : this_repo) + ' apps');
+
 var couch_http = http.createClient(config.opt.couch_port, config.opt.couch_host);
 if (config.opt.couch_prefix.length > 0) {
   var cprefix = config.opt.couch_prefix + '_';
@@ -132,6 +134,7 @@ var start_running_apps = function (apps_arr) {
     for(var i in apps_arr) {
         var doc = apps_arr[i].value;
         if (this_repo) {
+            util.log('Checking ' + doc.repo_id);
             if (doc.repo_id == this_repo) {
                 count++;
                 apps.push(doc);

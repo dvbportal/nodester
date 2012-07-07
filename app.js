@@ -11,7 +11,6 @@ http://nodester.com
 
 var express = require('express'),
     url = require('url'),
-    sys = require('sys'),
     config = require('./config'),
     middle = require('./lib/middle');
 
@@ -19,8 +18,6 @@ process.on('uncaughtException', function(err) {
   console.log(err.stack);
 });
 
-var daemon = require('daemon');
-// daemon.setreuid(config.opt.userid);
 var myapp = express.createServer();
 var gzippo = require('gzippo');
 
@@ -149,6 +146,29 @@ var domains = require('./lib/domains');
 myapp.post('/appdomains', middle.authenticate, middle.authenticate_app, domains.post);
 myapp.delete('/appdomains', middle.authenticate, middle.authenticate_app, domains.delete);
 myapp.get('/appdomains', middle.authenticate, domains.get);
+
+// Redis DB support
+var redisdb = require('./lib/redisdb');
+// GET will retrieve details of a redis db, read the log/config files or start/stop/restart the database
+// POST will create a named redis db instance
+// DELETE will remove a named redis db instance
+// curl -X GET -u "testuser:123" http://localhost:4001/redis/<dbname>
+// curl -X GET -u "testuser:123" http://localhost:4001/redis/logs/<dbname>
+// curl -X GET -u "testuser:123" http://localhost:4001/redis/config/<dbname>
+// curl -X GET -u "testuser:123" http://localhost:4001/redis/start/<dbname>
+// curl -X GET -u "testuser:123" http://localhost:4001/redis/stop/<dbname>
+// curl -X GET -u "testuser:123" http://localhost:4001/redis/restart/<dbname>
+// curl -X POST -u "testuser:123" -d "dbname=test" http://localhost:4001/redis
+// curl -X DELETE -u "testuser:123" -d "dbname=test" http://localhost:4001/redis
+myapp.get('/redis/:dbname', middle.authenticate, middle.authenticate_redisdb, redisdb.get);
+myapp.get('/redis', middle.authenticate, redisdb.get_all);
+myapp.get('/redis/start/:dbname', middle.authenticate, middle.authenticate_redisdb, redisdb.redis_start);
+myapp.get('/redis/stop/:dbname', middle.authenticate, middle.authenticate_redisdb, redisdb.redis_stop);
+myapp.get('/redis/restart/:dbname', middle.authenticate, middle.authenticate_redisdb, redisdb.redis_restart);
+myapp.get('/redis/logs/:dbname', middle.authenticate, middle.authenticate_redisdb, redisdb.logs);
+myapp.get('/redis/config/:dbname', middle.authenticate, middle.authenticate_redisdb, redisdb.config);
+myapp.post('/redis', middle.authenticate, redisdb.post);
+myapp.delete('/redis', middle.authenticate, middle.authenticate_redisdb, redisdb.delete);
 
 
 myapp.use(express.errorHandler({
